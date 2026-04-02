@@ -27,6 +27,7 @@ func main() {
 
 	log.Info("initializing server", slog.String("address", cfg.Address)) // Помимо сообщения выведем параметр с адресом
 	log.Debug("logger debug mode enabled")
+	log.Debug("check github token")
 
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
