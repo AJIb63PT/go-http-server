@@ -23,9 +23,9 @@ func main() {
 	cfg := config.MustLoad()
 	fmt.Println(cfg)
 	log := setupLogger(cfg.Env)
-	log = log.With(slog.String("env", cfg.Env)) // к каждому сообщению будет добавляться поле с информацией о текущем окружении
+	log = log.With(slog.String("env", cfg.Env))
 
-	log.Info("initializing server", slog.String("address", cfg.Address)) // Помимо сообщения выведем параметр с адресом
+	log.Info("initializing server", slog.String("address", cfg.Address))
 	log.Debug("logger debug mode enabled")
 	log.Debug("check github token")
 
@@ -34,13 +34,15 @@ func main() {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
-	_ = storage // Здесь мы просто инициализируем хранилище, но не используем его дальше
+
+	_ = storage
 	router := chi.NewRouter()
 
-	router.Use(middleware.RequestID) // Добавляет request_id в каждый запрос, для трейсинга
-	router.Use(middleware.Logger)    // Логирование всех запросов
-	router.Use(middleware.Recoverer) // Если где-то внутри сервера (обработчика запроса) произойдет паника, приложение не должно упасть
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
+
 }
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
