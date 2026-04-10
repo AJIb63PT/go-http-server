@@ -76,10 +76,12 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		}
 
 		alias := req.Alias
+		var id int64
+
 		if alias == "" {
-			for {
+			for i := 0; i < 5; i++ {
 				alias = random.NewRandomString(aliasLength)
-				_, err := urlSaver.SaveURL(req.URL, alias)
+				id, err = urlSaver.SaveURL(req.URL, alias)
 				if err == nil {
 					break
 				}
@@ -88,10 +90,14 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 					render.JSON(w, r, resp.Error("failed to add url"))
 					return
 				}
-				// If alias exists, try again
+			}
+			if err != nil {
+				log.Info("url already exists", slog.String("url", req.URL))
+				render.JSON(w, r, resp.Error("url already exists"))
+				return
 			}
 		} else {
-			id, err := urlSaver.SaveURL(req.URL, alias)
+			id, err = urlSaver.SaveURL(req.URL, alias)
 			if errors.Is(err, storage.ErrURLExists) {
 				log.Info("alias already exists", slog.String("alias", alias))
 				render.JSON(w, r, resp.Error("alias already exists"))
@@ -102,8 +108,9 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 				render.JSON(w, r, resp.Error("failed to add url"))
 				return
 			}
-			log.Info("url added", slog.Int64("id", id))
 		}
+
+		log.Info("url added", slog.Int64("id", id))
 
 		responseOK(w, r, alias)
 	}

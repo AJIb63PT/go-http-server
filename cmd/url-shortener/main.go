@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/url/get"
 	"url-shortener/internal/http-server/handlers/url/save"
 	"url-shortener/internal/lib/logger/sl"
 	"url-shortener/internal/storage/sqlite"
@@ -45,7 +46,8 @@ func main() {
 
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
-	router.Post("/url", save.New(log, storage))
+	router.Post("/links", save.New(log, storage))
+	router.Get("/links/{short_code}", get.New(log, storage))
 	log.Info("server up", slog.String("adress", cfg.Address))
 	srv := &http.Server{
 		Addr:         cfg.Address,

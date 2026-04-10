@@ -26,9 +26,12 @@ func New(storagePath string) (*Storage, error) {
 	stmt, err := db.Prepare(`
 	CREATE TABLE IF NOT EXISTS url(
 		id INTEGER PRIMARY KEY,
-		alias TEXT NOT NULL UNIQUE,
-		url TEXT NOT NULL);
-	CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);
+		short_code TEXT NOT NULL UNIQUE,
+		original_url TEXT NOT NULL UNIQUE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		visits INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX IF NOT EXISTS idx_short_code ON url(short_code);
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -47,7 +50,7 @@ func New(storagePath string) (*Storage, error) {
 func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 	const op = "storage.sqlite.SaveURL"
 
-	stmt, err := s.db.Prepare("INSERT INTO url(url, alias) VALUES(?, ?)")
+	stmt, err := s.db.Prepare("INSERT INTO url(original_url, short_code) VALUES(?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -73,7 +76,7 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 func (s *Storage) GetURL(alias string) (string, error) {
 	const op = "storage.sqlite.GetURL"
 
-	stmt, err := s.db.Prepare("SELECT url FROM url WHERE alias = ?")
+	stmt, err := s.db.Prepare("SELECT original_url FROM url WHERE short_code = ?")
 	if err != nil {
 		return "", fmt.Errorf("%s: prepare statement: %w", op, err)
 	}
@@ -95,7 +98,7 @@ func (s *Storage) GetURL(alias string) (string, error) {
 
 func (s *Storage) DeleteURL(alias string) error {
 	const op = "storage.sqlite.DeleteURL"
-	stmt, err := s.db.Prepare("DELETE FROM url WHERE alias = ?")
+	stmt, err := s.db.Prepare("DELETE FROM url WHERE short_code = ?")
 	if err != nil {
 		return fmt.Errorf("%s: prepare statement failed: %w", op, err)
 	}
@@ -116,4 +119,47 @@ func (s *Storage) DeleteURL(alias string) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) GetURLWithVisits(shortCode string) (string, int64, error) {
+	const op = "storage.sqlite.GetURLWithVisits"
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", 0, fmt.Errorf("%s: begin transaction: %w", op, err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	res, err := tx.Exec("UPDATE url SET visits = visits + 1 WHERE short_code = ?", shortCode)
+	if err != nil {
+		return "", 0, fmt.Errorf("%s: update visits: %w", op, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return "", 0, fmt.Errorf("%s: rows affected: %w", op, err)
+	}
+	if rowsAffected == 0 {
+		return "", 0, storage.ErrURLNotFound
+	}
+
+	var url string
+	var visits int64
+	row := tx.QueryRow("SELECT original_url, visits FROM url WHERE short_code = ?", shortCode)
+	if err := row.Scan(&url, &visits); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", 0, storage.ErrURLNotFound
+		}
+		return "", 0, fmt.Errorf("%s: select url: %w", op, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", 0, fmt.Errorf("%s: commit: %w", op, err)
+	}
+
+	return url, visits, nil
 }
