@@ -15,12 +15,14 @@ import (
 )
 
 type Response struct {
-	URL    string `json:"url"`
-	Visits int64  `json:"visits"`
+	URL              string  `json:"url"`
+	Visits           int64   `json:"visits"`
+	Source           string  `json:"source"`
+	CacheTTLSeconds  float64 `json:"cache_ttl_seconds,omitempty"`
 }
 
 type URLGetter interface {
-	GetURLWithVisits(shortCode string) (string, int64, error)
+	GetURLWithVisits(shortCode string) (string, int64, string, float64, error)
 }
 
 func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
@@ -40,7 +42,7 @@ func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
 			return
 		}
 
-		url, visits, err := storage.GetURLWithVisits(shortCode)
+		url, visits, source, cacheTTL, err := storage.GetURLWithVisits(shortCode)
 		if errors.Is(err, storagepkg.ErrURLNotFound) {
 			log.Info("short_code not found", slog.String("short_code", shortCode))
 			render.Status(r, http.StatusNotFound)
@@ -54,8 +56,10 @@ func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
 		}
 
 		render.JSON(w, r, Response{
-			URL:    url,
-			Visits: visits,
+			URL:             url,
+			Visits:          visits,
+			Source:          source,
+			CacheTTLSeconds: cacheTTL,
 		})
 	}
 }
