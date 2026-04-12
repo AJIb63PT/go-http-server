@@ -96,6 +96,29 @@ func (s *Storage) GetURL(alias string) (string, error) {
 	return resURL, nil
 }
 
+func (s *Storage) GetURLStats(shortCode string) (*storage.URL, error) {
+	const op = "storage.sqlite.GetURLStats"
+
+	stmt, err := s.db.Prepare("SELECT id, short_code, original_url, created_at, visits FROM url WHERE short_code = ?")
+	if err != nil {
+		return nil, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+	defer stmt.Close()
+
+	var url storage.URL
+
+	err = stmt.QueryRow(shortCode).Scan(&url.ID, &url.ShortCode, &url.OriginalURL, &url.CreatedAt, &url.Visits)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, storage.ErrURLNotFound
+		}
+
+		return nil, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	return &url, nil
+}
+
 func (s *Storage) DeleteURL(alias string) error {
 	const op = "storage.sqlite.DeleteURL"
 	stmt, err := s.db.Prepare("DELETE FROM url WHERE short_code = ?")
