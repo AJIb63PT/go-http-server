@@ -1,6 +1,7 @@
 ﻿# go-http-server
 
 URL shortener service written in Go with SQLite storage and in-memory caching.
+
 ![hippo](https://github.com/AJIb63PT/go-http-server/blob/main/save.go-http-go-server-Visual-Studio-Code-2026-04-12-21-47-25.gif)
 
 
