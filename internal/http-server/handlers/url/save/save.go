@@ -26,7 +26,6 @@ type Response struct {
 	ShortCode string `json:"short_code,omitempty"`
 }
 
-// TODO: move to config if needed
 const shortCodeLength = 6
 
 type URLSaver interface {
@@ -46,8 +45,6 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 		err := render.DecodeJSON(r.Body, &req)
 		if errors.Is(err, io.EOF) {
-			// Такую ошибку встретим, если получили запрос с пустым телом.
-			// Обработаем её отдельно
 			log.Error("request body is empty")
 
 			render.JSON(w, r, resp.Error("empty request"))

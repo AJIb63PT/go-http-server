@@ -198,10 +198,8 @@ func (s *Storage) GetURLWithVisits(shortCode string) (string, int64, string, flo
 	if val, ok := s.cache.Load(shortCode); ok {
 		data := val.(cachedData)
 		if time.Now().Before(data.ExpiresAt) {
-			// Кэш хранит только URL и created_at. Visits всегда считаем и увеличиваем в БД.
 			ttl := time.Until(data.ExpiresAt).Seconds()
 			s.cache.Store(shortCode, data)
-			// Обновляем счетчик в базе, чтобы он всегда был единой правдой.
 			res, err := s.db.Exec("UPDATE url SET visits = visits + 1 WHERE short_code = ?", shortCode)
 			if err != nil {
 				return "", 0, "", 0, fmt.Errorf("%s: update visits: %w", op, err)

@@ -32,14 +32,14 @@ func New(log *slog.Logger, storage URLLister) http.HandlerFunc {
 		limitStr := r.URL.Query().Get("limit")
 		offsetStr := r.URL.Query().Get("offset")
 
-		limit := 10 // default
+		limit := 10
 		if limitStr != "" {
 			if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 				limit = l
 			}
 		}
 
-		offset := 0 // default
+		offset := 0
 		if offsetStr != "" {
 			if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 				offset = o
