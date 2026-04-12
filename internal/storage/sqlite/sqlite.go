@@ -121,6 +121,43 @@ func (s *Storage) DeleteURL(alias string) error {
 	return nil
 }
 
+func (s *Storage) GetURLs(limit, offset int) ([]storage.URL, error) {
+	const op = "storage.sqlite.GetURLs"
+
+	stmt, err := s.db.Prepare(`
+		SELECT id, short_code, original_url, created_at, visits
+		FROM url
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("%s: execute query: %w", op, err)
+	}
+	defer rows.Close()
+
+	var urls []storage.URL
+	for rows.Next() {
+		var url storage.URL
+		err := rows.Scan(&url.ID, &url.ShortCode, &url.OriginalURL, &url.CreatedAt, &url.Visits)
+		if err != nil {
+			return nil, fmt.Errorf("%s: scan row: %w", op, err)
+		}
+		urls = append(urls, url)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: rows error: %w", op, err)
+	}
+
+	return urls, nil
+}
+
 func (s *Storage) GetURLWithVisits(shortCode string) (string, int64, error) {
 	const op = "storage.sqlite.GetURLWithVisits"
 
