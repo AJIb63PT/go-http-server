@@ -47,7 +47,7 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
+func (s *Storage) SaveURL(urlToSave string, shortCode string) (int64, error) {
 	const op = "storage.sqlite.SaveURL"
 
 	stmt, err := s.db.Prepare("INSERT INTO url(original_url, short_code) VALUES(?, ?)")
@@ -56,7 +56,7 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(urlToSave, alias)
+	res, err := stmt.Exec(urlToSave, shortCode)
 	if err != nil {
 		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			return 0, fmt.Errorf("%s: %w", op, storage.ErrURLExists)
@@ -73,7 +73,7 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 	return id, nil
 }
 
-func (s *Storage) GetURL(alias string) (string, error) {
+func (s *Storage) GetURL(shortCode string) (string, error) {
 	const op = "storage.sqlite.GetURL"
 
 	stmt, err := s.db.Prepare("SELECT original_url FROM url WHERE short_code = ?")
@@ -84,7 +84,7 @@ func (s *Storage) GetURL(alias string) (string, error) {
 
 	var resURL string
 
-	err = stmt.QueryRow(alias).Scan(&resURL)
+	err = stmt.QueryRow(shortCode).Scan(&resURL)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", storage.ErrURLNotFound
@@ -119,7 +119,7 @@ func (s *Storage) GetURLStats(shortCode string) (*storage.URL, error) {
 	return &url, nil
 }
 
-func (s *Storage) DeleteURL(alias string) error {
+func (s *Storage) DeleteURL(shortCode string) error {
 	const op = "storage.sqlite.DeleteURL"
 	stmt, err := s.db.Prepare("DELETE FROM url WHERE short_code = ?")
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *Storage) DeleteURL(alias string) error {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(alias)
+	res, err := stmt.Exec(shortCode)
 	if err != nil {
 		return fmt.Errorf("%s: execute failed: %w", op, err)
 	}

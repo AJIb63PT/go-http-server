@@ -21,7 +21,7 @@ type Response struct {
 }
 
 type URLDeleter interface {
-	DeleteURL(alias string) error
+	DeleteURL(shortCode string) error
 }
 
 func New(log *slog.Logger, storage URLDeleter) http.HandlerFunc {

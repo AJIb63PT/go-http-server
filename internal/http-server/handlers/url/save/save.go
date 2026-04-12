@@ -17,21 +17,20 @@ import (
 )
 
 type Request struct {
-	URL   string `json:"url" validate:"required,url"`
-	Alias string `json:"alias,omitempty"`
+	URL       string `json:"url" validate:"required,url"`
+	ShortCode string `json:"short_code,omitempty"`
 }
 
 type Response struct {
 	resp.Response
-	Alias string `json:"alias,omitempty"`
+	ShortCode string `json:"short_code,omitempty"`
 }
 
 // TODO: move to config if needed
-const aliasLength = 6
+const shortCodeLength = 6
 
-//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=URLSaver
 type URLSaver interface {
-	SaveURL(urlToSave string, alias string) (int64, error)
+	SaveURL(urlToSave string, shortCode string) (int64, error)
 }
 
 func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
@@ -75,13 +74,13 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 			return
 		}
 
-		alias := req.Alias
+		shortCode := req.ShortCode
 		var id int64
 
-		if alias == "" {
+		if shortCode == "" {
 			for i := 0; i < 5; i++ {
-				alias = random.NewRandomString(aliasLength)
-				id, err = urlSaver.SaveURL(req.URL, alias)
+				shortCode = random.NewRandomString(shortCodeLength)
+				id, err = urlSaver.SaveURL(req.URL, shortCode)
 				if err == nil {
 					break
 				}
@@ -97,10 +96,10 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 				return
 			}
 		} else {
-			id, err = urlSaver.SaveURL(req.URL, alias)
+			id, err = urlSaver.SaveURL(req.URL, shortCode)
 			if errors.Is(err, storage.ErrURLExists) {
-				log.Info("alias already exists", slog.String("alias", alias))
-				render.JSON(w, r, resp.Error("alias already exists"))
+				log.Info("short_code already exists", slog.String("short_code", shortCode))
+				render.JSON(w, r, resp.Error("short_code already exists"))
 				return
 			}
 			if err != nil {
@@ -112,13 +111,13 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 		log.Info("url added", slog.Int64("id", id))
 
-		responseOK(w, r, alias)
+		responseOK(w, r, shortCode)
 	}
 }
 
-func responseOK(w http.ResponseWriter, r *http.Request, alias string) {
+func responseOK(w http.ResponseWriter, r *http.Request, shortCode string) {
 	render.JSON(w, r, Response{
-		Response: resp.OK(),
-		Alias:    alias,
+		Response:  resp.OK(),
+		ShortCode: shortCode,
 	})
 }
