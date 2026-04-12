@@ -18,7 +18,7 @@ import (
 
 type Request struct {
 	URL       string `json:"url" validate:"required,url"`
-	ShortCode string `json:"short_code,omitempty"`
+	ShortCode string `json:"shortCode,omitempty"`
 }
 
 type Response struct {
@@ -95,8 +95,13 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		} else {
 			id, err = urlSaver.SaveURL(req.URL, shortCode)
 			if errors.Is(err, storage.ErrURLExists) {
-				log.Info("short_code already exists", slog.String("short_code", shortCode))
-				render.JSON(w, r, resp.Error("short_code already exists"))
+				log.Info("url already exists", slog.String("url", req.URL))
+				render.JSON(w, r, resp.Error("url already exists"))
+				return
+			}
+			if errors.Is(err, storage.ErrShortCodeExists) {
+				log.Info("short code already exists", slog.String("short_code", shortCode))
+				render.JSON(w, r, resp.Error("short code already exists"))
 				return
 			}
 			if err != nil {

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -59,6 +58,23 @@ func New(storagePath string) (*Storage, error) {
 func (s *Storage) SaveURL(urlToSave string, shortCode string) (int64, error) {
 	const op = "storage.sqlite.SaveURL"
 
+	// Check if short_code already exists
+	var existingID int64
+	err := s.db.QueryRow("SELECT id FROM url WHERE short_code = ?", shortCode).Scan(&existingID)
+	if err == nil {
+		return 0, fmt.Errorf("%s: %w", op, storage.ErrShortCodeExists)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%s: check short_code: %w", op, err)
+	}
+
+	// Check if original_url already exists
+	err = s.db.QueryRow("SELECT id FROM url WHERE original_url = ?", urlToSave).Scan(&existingID)
+	if err == nil {
+		return 0, fmt.Errorf("%s: %w", op, storage.ErrURLExists)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%s: check url: %w", op, err)
+	}
+
 	stmt, err := s.db.Prepare("INSERT INTO url(original_url, short_code) VALUES(?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -67,10 +83,6 @@ func (s *Storage) SaveURL(urlToSave string, shortCode string) (int64, error) {
 
 	res, err := stmt.Exec(urlToSave, shortCode)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return 0, fmt.Errorf("%s: %w", op, storage.ErrURLExists)
-		}
-
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
