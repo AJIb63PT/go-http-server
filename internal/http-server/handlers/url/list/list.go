@@ -1,10 +1,10 @@
 package list
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/render"
 	"golang.org/x/exp/slog"
 
 	resp "url-shortener/internal/lib/api/response"
@@ -49,11 +49,13 @@ func New(log *slog.Logger, storage URLLister) http.HandlerFunc {
 		urls, err := storage.GetURLs(limit, offset)
 		if err != nil {
 			log.Error("failed to get urls", sl.Err(err))
-			render.JSON(w, r, resp.Error("failed to get urls"))
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp.Error("failed to get urls"))
 			return
 		}
 
-		render.JSON(w, r, Response{
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
 			Response: resp.OK(),
 			Links:    urls,
 		})

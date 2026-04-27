@@ -1,13 +1,12 @@
 package get
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	storagepkg "url-shortener/internal/storage"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 	"golang.org/x/exp/slog"
 
 	resp "url-shortener/internal/lib/api/response"
@@ -31,31 +30,33 @@ func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
 
 		log := log.With(
 			slog.String("op", op),
-			slog.String("request_id", chi.URLParam(r, "short_code")),
+			slog.String("request_id", r.PathValue("short_code")),
 		)
 
-		shortCode := chi.URLParam(r, "short_code")
+		shortCode := r.PathValue("short_code")
 		if shortCode == "" {
 			log.Error("short_code missing")
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, resp.Error("short_code is required"))
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(resp.Error("short_code is required"))
 			return
 		}
 
 		url, visits, source, cacheTTL, err := storage.GetURLWithVisits(shortCode)
 		if errors.Is(err, storagepkg.ErrURLNotFound) {
 			log.Info("short_code not found", slog.String("short_code", shortCode))
-			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, resp.Error("not found"))
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(resp.Error("not found"))
 			return
 		}
 		if err != nil {
 			log.Error("failed to get url", sl.Err(err))
-			render.JSON(w, r, resp.Error("failed to get url"))
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(resp.Error("failed to get url"))
 			return
 		}
 
-		render.JSON(w, r, Response{
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{
 			URL:             url,
 			Visits:          visits,
 			Source:          source,

@@ -14,8 +14,6 @@ import (
 	"url-shortener/internal/lib/logger/sl"
 	"url-shortener/internal/storage/sqlite"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/exp/slog"
 )
 
@@ -42,22 +40,16 @@ func main() {
 	}
 
 	_ = storage
-	router := chi.NewRouter()
+	mux := http.NewServeMux()
 
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-	router.Post("/links", save.New(log, storage))
-	router.Get("/links", list.New(log, storage))
-	router.Get("/links/{short_code}", get.New(log, storage))
-	router.Get("/links/{short_code}/stats", stats.New(log, storage))
-	router.Delete("/links/{short_code}", delete.New(log, storage))
-	log.Info("server up", slog.String("adress", cfg.Address))
+	mux.HandleFunc("POST /links", save.New(log, storage))
+	mux.HandleFunc("GET /links", list.New(log, storage))
+	mux.HandleFunc("GET /links/{short_code}", get.New(log, storage))
+	mux.HandleFunc("GET /links/{short_code}/stats", stats.New(log, storage))
+	mux.HandleFunc("DELETE /links/{short_code}", delete.New(log, storage))
 	srv := &http.Server{
 		Addr:         cfg.Address,
-		Handler:      router,
+		Handler:      mux,
 		ReadTimeout:  cfg.HTTPServer.Timeout,
 		WriteTimeout: cfg.HTTPServer.Timeout,
 		IdleTimeout:  cfg.HTTPServer.IdleTimeout,

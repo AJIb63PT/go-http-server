@@ -1,12 +1,11 @@
 package save
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/exp/slog"
 
@@ -38,23 +37,24 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 		log := log.With(
 			slog.String("op", op),
-			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
 		var req Request
 
-		err := render.DecodeJSON(r.Body, &req)
+		err := json.NewDecoder(r.Body).Decode(&req)
 		if errors.Is(err, io.EOF) {
 			log.Error("request body is empty")
 
-			render.JSON(w, r, resp.Error("empty request"))
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp.Error("empty request"))
 
 			return
 		}
 		if err != nil {
 			log.Error("failed to decode request body", sl.Err(err))
 
-			render.JSON(w, r, resp.Error("failed to decode request"))
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp.Error("failed to decode request"))
 
 			return
 		}
@@ -66,7 +66,8 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 			log.Error("invalid request", sl.Err(err))
 
-			render.JSON(w, r, resp.ValidationError(validateErr))
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp.ValidationError(validateErr))
 
 			return
 		}
@@ -83,30 +84,35 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 				}
 				if !errors.Is(err, storage.ErrURLExists) {
 					log.Error("failed to add url", sl.Err(err))
-					render.JSON(w, r, resp.Error("failed to add url"))
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(resp.Error("failed to add url"))
 					return
 				}
 			}
 			if err != nil {
 				log.Info("url already exists", slog.String("url", req.URL))
-				render.JSON(w, r, resp.Error("url already exists"))
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp.Error("url already exists"))
 				return
 			}
 		} else {
 			id, err = urlSaver.SaveURL(req.URL, shortCode)
 			if errors.Is(err, storage.ErrURLExists) {
 				log.Info("url already exists", slog.String("url", req.URL))
-				render.JSON(w, r, resp.Error("url already exists"))
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp.Error("url already exists"))
 				return
 			}
 			if errors.Is(err, storage.ErrShortCodeExists) {
 				log.Info("short code already exists", slog.String("short_code", shortCode))
-				render.JSON(w, r, resp.Error("short code already exists"))
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp.Error("short code already exists"))
 				return
 			}
 			if err != nil {
 				log.Error("failed to add url", sl.Err(err))
-				render.JSON(w, r, resp.Error("failed to add url"))
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp.Error("failed to add url"))
 				return
 			}
 		}
@@ -118,7 +124,8 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 }
 
 func responseOK(w http.ResponseWriter, r *http.Request, shortCode string) {
-	render.JSON(w, r, Response{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{
 		Response:  resp.OK(),
 		ShortCode: shortCode,
 	})
