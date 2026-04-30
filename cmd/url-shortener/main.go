@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"url-shortener/internal/config"
 	"url-shortener/internal/http-server/handlers/url/delete"
@@ -54,9 +58,29 @@ func main() {
 		WriteTimeout: cfg.HTTPServer.Timeout,
 		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
 	}
-	if err := srv.ListenAndServe(); err != nil {
-		log.Error("failed to start server")
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Info("starting server", slog.String("address", cfg.Address))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("failed to start server", sl.Err(err))
+		}
+	}()
+
+	<-done
+	log.Info("shutting down server")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error("server forced to shutdown", sl.Err(err))
+		os.Exit(1)
 	}
+
+	log.Info("server exited")
 }
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger

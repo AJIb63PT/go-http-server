@@ -31,7 +31,19 @@ func New(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmt, err := db.Prepare(`
+	storage := &Storage{db: db}
+
+	if err := storage.Migrate(); err != nil {
+		return nil, fmt.Errorf("%s: migrate: %w", op, err)
+	}
+
+	return storage, nil
+}
+
+func (s *Storage) Migrate() error {
+	const op = "storage.sqlite.Migrate"
+
+	stmt, err := s.db.Prepare(`
 	CREATE TABLE IF NOT EXISTS url(
 		id INTEGER PRIMARY KEY,
 		short_code TEXT NOT NULL UNIQUE,
@@ -42,17 +54,17 @@ func New(storagePath string) (*Storage, error) {
 	CREATE INDEX IF NOT EXISTS idx_short_code ON url(short_code);
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	_, err = stmt.Exec()
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	stmt.Close()
 
-	return &Storage{db: db}, nil
+	return nil
 }
 
 func (s *Storage) SaveURL(urlToSave string, shortCode string) (int64, error) {
